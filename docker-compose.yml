@@ -25,8 +25,7 @@ services:
     restart: unless-stopped
     # 依赖关系
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mysql
     # 端口映射
     ports:
       - "8000:8000"
