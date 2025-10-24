@@ -31,9 +31,11 @@ RUN mkdir -p /app/data
 EXPOSE 8000
 
 # 设置环境变量
-ENV PYTHONUNBUFFERED=1 \
-    HOST=0.0.0.0 \
-    PORT=8000
+ENV PYTHONUNBUFFERED=1
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
+    CMD curl -f http://localhost:8000/health || exit 1
 
 # 启动命令
 CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

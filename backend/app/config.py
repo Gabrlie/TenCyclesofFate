@@ -1,4 +1,22 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
+import os
+
+# 确定 .env 文件的位置
+# 优先使用根目录的 .env，如果不存在则使用 backend/.env
+def get_env_file():
+    # 在 Docker 容器中，环境变量会直接注入，不需要 .env 文件
+    if os.environ.get('OPENAI_API_KEY'):
+        return None
+    
+    root_env = Path(__file__).parent.parent.parent / ".env"
+    backend_env = Path(__file__).parent.parent / ".env"
+    
+    if root_env.exists():
+        return str(root_env)
+    elif backend_env.exists():
+        return str(backend_env)
+    return None
 
 class Settings(BaseSettings):
     # OpenAI API Settings
@@ -21,12 +39,16 @@ class Settings(BaseSettings):
     LINUXDO_SCOPE: str = "read"
 
     # Server Settings
-    HOST: str = "127.0.0.1"
+    HOST: str = "0.0.0.0"
     PORT: int = 8000
-    UVICORN_RELOAD: bool = True
+    UVICORN_RELOAD: bool = False
 
-    # Point to the .env file in the 'backend' directory relative to the project root
-    model_config = SettingsConfigDict(env_file="backend/.env")
+    # 自动检测 .env 文件位置
+    model_config = SettingsConfigDict(
+        env_file=get_env_file(),
+        env_file_encoding='utf-8',
+        extra='ignore'
+    )
 
 # Create a single instance of the settings
 settings = Settings()

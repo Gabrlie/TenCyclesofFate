@@ -29,155 +29,246 @@
     - `marked.js`: 用于在前端渲染 Markdown 格式的叙事文本。
     - `pako.js`: 用于解压缩从 WebSocket 服务器接收的 Gzip 数据，提高传输效率。
 
-## 🚀 部署指南
+## 🚀 快速开始
 
-请遵循以下步骤在您的本地环境或服务器上部署《浮生十梦》。
-
-### 1. 环境准备
-
-确保您的系统已安装以下软件：
-
-- **Python 3.8+**
-- **Git**
-- **uv** (推荐, 用于快速安装依赖):
-  ```bash
-  pip install uv
-  ```
-
-### 2. 获取项目代码
-
-使用 `git` 克隆本仓库到您的本地机器：
+### 方式一：Docker 部署（推荐）
 
 ```bash
-git clone https://github.com/CassiopeiaCode/TenCyclesofFate.git
+# 1. 克隆项目
+git clone https://github.com/Gabrlie/TenCyclesofFate.git
 cd TenCyclesofFate
-```
 
-### 3. 安装后端依赖（Docker方式部署无需此步）
+# 2. 配置环境变量（复制并编辑 .env 文件）
+cp .env.example .env
+# 编辑 .env 文件，至少需要设置 OPENAI_API_KEY 和 SECRET_KEY
 
-项目使用 `uv`（或 `pip`）来管理 Python 依赖。在项目根目录下运行：
-
-```bash
-# 使用 uv (推荐)
-uv pip install -r backend/requirements.txt
-
-# 或者使用 pip
-pip install -r backend/requirements.txt
-```
-
-### 4. 配置环境变量
-
-项目的所有配置都通过环境变量进行管理。
-
-1.  **创建 `.env` 文件**:
-    在 `backend/` 目录下，复制示例文件 `.env.example` 并重命名为 `.env`。
-
-    ```bash
-    cp backend/.env.example backend/.env
-    ```
-
-2.  **编辑 `.env` 文件**:
-    使用文本编辑器打开 `backend/.env` 文件，并填入以下必要信息：
-
-    ```dotenv
-    # OpenAI API Settings
-    # 必填。你的 OpenAI API 密钥。
-    OPENAI_API_KEY="your_openai_api_key_here"
-    # 如果你使用代理或第三方服务，请修改此 URL。
-    OPENAI_BASE_URL="https://api.openai.com/v1"
-    # 指定用于生成游戏内容的模型。
-    OPENAI_MODEL="gpt-4o"
-    # 指定用于作弊检查的模型。
-    OPENAI_MODEL_CHEAT_CHECK="gpt-3.5-turbo"
-
-    # JWT Settings for OAuth2
-    # 必填。一个长而随机的字符串，用于签名 JWT。
-    # 你可以使用 `openssl rand -hex 32` 生成。
-    SECRET_KEY="a_very_secret_key_that_should_be_changed"
-    ALGORITHM="HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES=600
-
-    # Linux.do OAuth Settings
-    # 必填。在 Linux.do 注册应用后获取的 Client ID。
-    LINUXDO_CLIENT_ID="your_linuxdo_client_id"
-    # 必填。在 Linux.do 注册应用后获取的 Client Secret。
-    LINUXDO_CLIENT_SECRET="your_linuxdo_client_secret"
-    LINUXDO_SCOPE="read"
-
-    # Database
-    # 数据库文件路径。默认指向项目根目录下的 veloera.db 文件。
-    DATABASE_URL="sqlite:///veloera.db"
-
-    # Server Settings
-    # 服务器监听的主机和端口。
-    HOST="0.0.0.0"
-    PORT=8000
-    # 是否开启热重载。在生产环境中建议设为 false。
-    UVICORN_RELOAD=true
-    ```
-
-    **重要**:
-    - **`SECRET_KEY`**: 必须更改为一个强随机字符串，否则会存在安全风险。
-    - **`LINUXDO_CLIENT_ID` / `SECRET`**: 你需要在 [Linux.do](https://linux.do/) 的用户设置中注册一个新的 OAuth2 应用来获取这些凭证。**回调 URL (Redirect URI)** 必须设置为 `http://<你的域名或IP>:<端口>/callback`。例如：`http://localhost:8000/callback`。
-
-### 5. 运行应用
-
-提供了一个 `run.sh` 脚本来方便地启动应用。
-
-首先，给脚本添加执行权限：
-```bash
-chmod +x run.sh
-```
-
-然后，运行脚本：
-```bash
-./run.sh
-```
-
-使用Docker方式部署：
-```bash
+# 3. 一键启动
 docker compose up -d
 ```
 
-脚本会自动加载 `backend/.env` 文件中的环境变量，并使用 `uvicorn` 启动 FastAPI 服务器。
+访问 `http://localhost:8000` 开始游戏！
 
-服务器成功启动后，您应该会看到类似以下的输出：
-```
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+**停止服务：**
+```bash
+docker compose down
 ```
 
-现在，在您的浏览器中打开 `http://localhost:8000` 即可开始游戏。
+**查看日志：**
+```bash
+docker compose logs -f
+```
+
+---
+
+### 方式二：本地开发部署
+
+适合需要修改代码或本地开发的情况。
+
+#### 1. 环境准备
+
+- **Python 3.8+**
+- **Git**
+- **pip** 或 **uv**（推荐）
+
+#### 2. 安装依赖
+
+```bash
+# 克隆项目
+git clone https://github.com/Gabrlie/TenCyclesofFate.git
+cd TenCyclesofFate
+
+# 安装依赖
+pip install -r backend/requirements.txt
+# 或使用 uv（更快）
+uv pip install -r backend/requirements.txt
+```
+
+#### 3. 配置环境变量
+
+```bash
+# 复制配置文件
+cp .env.example .env
+
+# 编辑配置文件
+# OPENAI_API_KEY=你的OpenAI密钥
+# SECRET_KEY=使用 openssl rand -hex 32 生成
+nano .env  # 或使用你喜欢的编辑器
+```
+
+#### 4. 运行应用
+
+```bash
+# 方式 A：使用启动脚本
+chmod +x run.sh
+./run.sh
+
+# 方式 B：直接使用 uvicorn
+cd backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+访问 `http://localhost:8000` 开始游戏！
+
+---
+
+## ⚙️ 配置说明
+
+所有配置项都在 `.env` 文件中管理。以下是关键配置项：
+
+### 必填配置
+
+| 配置项 | 说明 | 示例 |
+|--------|------|------|
+| `OPENAI_API_KEY` | OpenAI API 密钥 | `sk-...` |
+| `SECRET_KEY` | JWT 签名密钥（必须是随机字符串） | 使用 `openssl rand -hex 32` 生成 |
+
+### 可选配置
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `OPENAI_BASE_URL` | OpenAI API 地址（可用于代理） | `https://api.openai.com/v1` |
+| `OPENAI_MODEL` | 主模型 | `gpt-4o` |
+| `OPENAI_MODEL_CHEAT_CHECK` | 作弊检查模型 | `gpt-3.5-turbo` |
+| `LINUXDO_CLIENT_ID` | Linux.do OAuth ID（可选） | - |
+| `LINUXDO_CLIENT_SECRET` | Linux.do OAuth 密钥（可选） | - |
+| `DATABASE_URL` | 数据库连接地址 | `sqlite:///data/tencyclesoffate.db` |
+| `PORT` | 服务端口 | `8000` |
+| `EXTERNAL_PORT` | Docker 外部端口 | `8000` |
+
+**注意：**
+- Docker 部署会自动使用 SQLite 数据库，数据保存在 `./data` 目录
+- `SECRET_KEY` 务必修改为随机字符串，否则存在安全风险
+
+---
+
+## 🎮 使用指南
+
+### 首次使用
+
+1. **访问游戏**：在浏览器打开 `http://localhost:8000`
+2. **注册账号**：
+   - 点击"注册"标签
+   - 点击"使用 Linux.do 登录"（需先配置 OAuth）
+3. **开始游戏**：点击"开始第一次试炼"
+
+### 数据持久化
+
+- **Docker 部署**：数据自动保存在 `./data` 目录，即使容器重启数据也不会丢失
+- **本地部署**：数据保存在配置的 `DATABASE_URL` 位置
+
+---
+
+## 🔧 高级配置
+
+### 更改端口
+
+编辑 `.env` 文件：
+```bash
+PORT=8080              # 应用端口
+EXTERNAL_PORT=8080     # Docker 映射端口
+```
+
+### 启用 Linux.do OAuth 登录
+
+1. 在 [Linux.do](https://linux.do/) 注册 OAuth 应用
+2. 设置回调 URL：`http://你的域名:端口/callback`
+3. 在 `.env` 中配置：
+   ```bash
+   LINUXDO_CLIENT_ID=你的ClientID
+   LINUXDO_CLIENT_SECRET=你的ClientSecret
+   ```
+
+### 使用自定义 OpenAI API
+
+支持使用代理或第三方兼容 API：
+```bash
+OPENAI_BASE_URL=https://your-proxy.com/v1
+```
+
+---
+
+## 📋 常见问题
+
+**Q: Docker 启动失败？**
+- 检查 `.env` 文件是否存在且配置正确
+- 检查端口 8000 是否被占用：`lsof -i :8000`
+- 查看日志：`docker compose logs`
+
+**Q: 如何重置数据？**
+- Docker 部署：删除 `./data` 目录
+- 本地部署：删除 `DATABASE_URL` 指定的数据库文件
+
+**Q: 如何更新到最新版本？**
+```bash
+# Docker 部署
+docker compose pull
+docker compose up -d
+
+# 本地部署
+git pull
+pip install -r backend/requirements.txt --upgrade
+```
+
+---
 
 ## 📁 项目结构
 
 ```
-.
-├── backend/
-│   ├── .env.example        # 环境变量示例文件
+TenCyclesofFate/
+├── .env.example            # 环境变量模板
+├── .env                    # 环境变量配置（需自行创建）
+├── docker-compose.yml      # Docker Compose 配置
+├── Dockerfile              # Docker 镜像构建文件
+├── run.sh                  # 本地启动脚本
+├── README.md               # 本文档
+├── STREAMING_UPDATE.md     # 流式输出更新说明
+│
+├── backend/                # 后端代码
 │   ├── requirements.txt    # Python 依赖
 │   └── app/
-│       ├── __init__.py
-│       ├── main.py         # FastAPI 应用主入口
-│       ├── config.py       # Pydantic 配置模型
-│       ├── auth.py         # 认证和 OAuth 逻辑
-│       ├── game_logic.py   # 核心游戏逻辑
-│       ├── websocket_manager.py # WebSocket 连接管理
-│       ├── state_manager.py  # 游戏状态的保存与加载
-│       ├── db.py           # 数据库连接
-│       ├── openai_client.py # OpenAI API 客户端
-│       ├── cheat_check.py  # 作弊检查逻辑
-│       ├── redemption.py   # 兑换码生成逻辑
-│       └── prompts/        # 存放 AI 系统提示的目录
+│       ├── main.py         # FastAPI 主入口
+│       ├── config.py       # 配置管理
+│       ├── auth.py         # 认证逻辑
+│       ├── db.py           # 数据库操作
+│       ├── game_logic.py   # 游戏逻辑
+│       ├── openai_client.py # OpenAI 客户端
+│       ├── websocket_manager.py # WebSocket 管理
+│       ├── state_manager.py # 状态管理
+│       ├── cheat_check.py  # 反作弊系统
+│       ├── redemption.py   # 兑换码系统
+│       ├── security.py     # 加密工具
+│       ├── live_system.py  # 观战系统
+│       └── prompts/        # AI 提示词
 │
-├── frontend/
-│   ├── index.html          # 主 HTML 文件
-│   ├── style.css           # CSS 样式文件
-│   └── app.js              # 前端 JavaScript 逻辑
+├── frontend/               # 前端代码
+│   ├── index.html          # 游戏主页
+│   ├── index.css           # 主页样式
+│   ├── index.js            # 主页逻辑
+│   ├── live.html           # 观战页面
+│   ├── live.css            # 观战样式
+│   └── live.js             # 观战逻辑
 │
-├── scripts/
-│   └── generate_token.py   # 用于生成测试 token 的脚本
+├── scripts/                # 工具脚本
+│   ├── generate_token.py   # 生成测试 Token
+│   └── init_db.py          # 初始化数据库
 │
-├── .gitignore
-├── README.md               # 本文档
-└── run.sh                  # 应用启动脚本
+├── data/                   # 数据目录（自动创建）
+│   ├── tencyclesoffate.db  # SQLite 数据库
+│   └── game_states.json    # 游戏状态
+│
+└── logs/                   # 日志目录（自动创建）
 ```
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📄 许可证
+
+本项目采用 MIT 许可证。
+
+## 🙏 致谢
+
+- 原项目[CassiopeiaCode/TenCyclesofFate](https://github.com/CassiopeiaCode/TenCyclesofFate)
