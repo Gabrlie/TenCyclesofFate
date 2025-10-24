@@ -2,10 +2,10 @@ version: '3.8'
 
 services:
   ten-cycles-of-fate:
-    # image: gabrlie/ten-cycles-of-fate:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: gabrlie/ten-cycles-of-fate:latest
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     container_name: ten-cycles-of-fate
     restart: unless-stopped
     # 环境变量配置
