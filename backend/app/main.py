@@ -9,12 +9,12 @@ from fastapi import (
     FastAPI, APIRouter, Depends, HTTPException, status,
     WebSocket, WebSocketDisconnect, Request
 )
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from . import auth, game_logic, state_manager, security
+from . import auth, game_logic, state_manager, security, users
 from .websocket_manager import manager as websocket_manager
 from .live_system import live_manager
 from .config import settings
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logging.info("Application startup...")
+    users.init_user_table()
     state_manager.load_from_json()
     state_manager.start_auto_save_task()
     yield
@@ -46,16 +47,86 @@ api_router = APIRouter(prefix="/api")
 root_router = APIRouter()
 
 
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50, description="账户名称")
+    password: str = Field(min_length=6, max_length=128, description="登录密码")
+    display_name: str | None = Field(default=None, max_length=50, description="显示名")
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=6, max_length=128)
+
+
+@api_router.get("/auth/options")
+async def get_auth_options():
+    """Expose auth feature toggles to the frontend."""
+    allow_local_login = settings.ENABLE_LOCAL_LOGIN
+    allow_local_registration = (
+        allow_local_login and settings.ENABLE_LOCAL_REGISTRATION
+    )
+    return {
+        "enable_linuxdo_oauth": auth.HAS_LINUXDO_OAUTH,
+        "enable_local_login": allow_local_login,
+        "enable_local_registration": allow_local_registration,
+    }
+
+
+def _issue_token_response(
+    *,
+    user_id: int | str,
+    username: str,
+    display_name: str | None,
+    trust_level: int,
+    message: str,
+    status_code: int = status.HTTP_200_OK,
+):
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    jwt_payload = {
+        "sub": username,
+        "id": user_id,
+        "name": display_name or username,
+        "trust_level": trust_level,
+    }
+    access_token = auth.create_access_token(
+        data=jwt_payload, expires_delta=access_token_expires
+    )
+    response = JSONResponse(
+        {
+            "message": message,
+            "user": {
+                "id": user_id,
+                "username": username,
+                "name": display_name or username,
+                "trust_level": trust_level,
+            },
+        },
+        status_code=status_code,
+    )
+    response.set_cookie(
+        "token",
+        value=access_token,
+        httponly=True,
+        max_age=int(access_token_expires.total_seconds()),
+        samesite="lax",
+    )
+    return response
+
+
 # --- Authentication Routes ---
 @api_router.get('/login/linuxdo')
 async def login_linuxdo(request: Request):
     """
     Redirects the user to Linux.do for authentication.
     """
+    if not auth.HAS_LINUXDO_OAUTH:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Linux.do 登录已关闭")
+
     # Use a hardcoded, absolute URL for the callback to avoid ambiguity
     # This must match the URL registered in your Linux.do OAuth application settings.
     redirect_uri = str(request.url.replace(path="/callback"))
-    return await auth.oauth.linuxdo.authorize_redirect(request, redirect_uri)
+    client = auth.get_linuxdo_client()
+    return await client.authorize_redirect(request, redirect_uri)
 
 @root_router.get('/callback')
 async def auth_linuxdo_callback(request: Request):
@@ -64,8 +135,12 @@ async def auth_linuxdo_callback(request: Request):
     This route is now at the root to match the expected OAuth callback URL.
     Fetches user info, creates a JWT, and sets it in a cookie.
     """
+    if not auth.HAS_LINUXDO_OAUTH:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Linux.do 登录已关闭")
+    client = auth.get_linuxdo_client()
+
     try:
-        token = await auth.oauth.linuxdo.authorize_access_token(request)
+        token = await client.authorize_access_token(request)
     except Exception as e:
         logger.error(f"Error during OAuth callback: {e}")
         raise HTTPException(
@@ -73,7 +148,7 @@ async def auth_linuxdo_callback(request: Request):
             detail="Could not authorize access token",
         )
 
-    resp = await auth.oauth.linuxdo.get('api/user', token=token)
+    resp = await client.get('api/user', token=token)
     resp.raise_for_status()
     user_info = resp.json()
 
@@ -99,6 +174,92 @@ async def auth_linuxdo_callback(request: Request):
         samesite="lax",
     )
     return response
+
+
+@api_router.post("/register", status_code=status.HTTP_201_CREATED)
+async def register_local_account(payload: RegisterRequest):
+    if not settings.ENABLE_LOCAL_LOGIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="登录功能已关闭",
+        )
+    if not settings.ENABLE_LOCAL_REGISTRATION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="注册功能已关闭",
+        )
+
+    username = payload.username.strip()
+    display_name = payload.display_name.strip() if payload.display_name else None
+
+    if len(username) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户名至少需要 3 个字符",
+        )
+    if payload.password.strip() == "":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码不能全为空格",
+        )
+
+    if users.get_user_by_username(username):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户名已存在",
+        )
+
+    password_hash = auth.get_password_hash(payload.password)
+    try:
+        user = users.create_user(
+            username=username,
+            password_hash=password_hash,
+            display_name=display_name or username,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return _issue_token_response(
+        user_id=user.id,
+        username=user.username,
+        display_name=user.display_name or user.username,
+        trust_level=user.trust_level,
+        message="注册成功",
+        status_code=status.HTTP_201_CREATED,
+    )
+
+
+@api_router.post("/login")
+async def login_local_account(payload: LoginRequest):
+    if not settings.ENABLE_LOCAL_LOGIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="登录功能已关闭",
+        )
+    username = payload.username.strip()
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请输入用户名",
+        )
+
+    user = users.get_user_by_username(username)
+    if not user or not auth.verify_password(payload.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="用户名或密码错误",
+        )
+
+    return _issue_token_response(
+        user_id=user.id,
+        username=user.username,
+        display_name=user.display_name or user.username,
+        trust_level=user.trust_level,
+        message="登录成功",
+    )
 
 @api_router.post("/logout")
 async def logout():

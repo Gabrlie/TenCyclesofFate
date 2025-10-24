@@ -4,12 +4,30 @@ const API_BASE_URL = "/api";
 // --- State Management ---
 const appState = {
     gameState: null,
+    authOptions: {
+        enableLocalLogin: true,
+        enableLocalRegistration: true,
+        enableLinuxdoOAuth: true,
+    },
 };
 
 // --- DOM Elements ---
 const DOMElements = {
     loginView: document.getElementById('login-view'),
     gameView: document.getElementById('game-view'),
+    tabLogin: document.getElementById('tab-login'),
+    tabRegister: document.getElementById('tab-register'),
+    loginForm: document.getElementById('local-login-form'),
+    registerForm: document.getElementById('local-register-form'),
+    authTabs: document.getElementById('auth-tabs'),
+    loginUsername: document.getElementById('login-username'),
+    loginPassword: document.getElementById('login-password'),
+    registerUsername: document.getElementById('register-username'),
+    registerPassword: document.getElementById('register-password'),
+    registerConfirmPassword: document.getElementById('register-confirm-password'),
+    registerDisplayName: document.getElementById('register-display-name'),
+    linuxdoButton: document.getElementById('linuxdo-button'),
+    authDivider: document.getElementById('auth-divider'),
     loginError: document.getElementById('login-error'),
     logoutButton: document.getElementById('logout-button'),
     narrativeWindow: document.getElementById('narrative-window'),
@@ -27,6 +45,219 @@ const DOMElements = {
     rollOutcome: document.getElementById('roll-outcome'),
     rollValue: document.getElementById('roll-value'),
 };
+
+// --- Authentication Helpers ---
+function setAuthError(message) {
+    DOMElements.loginError.textContent = message || '';
+}
+
+function setAuthMode(mode) {
+    const allowLogin = appState.authOptions.enableLocalLogin;
+    const allowRegister = allowLogin && appState.authOptions.enableLocalRegistration;
+
+    let desiredMode = mode;
+    if (!allowLogin) {
+        desiredMode = allowRegister ? 'register' : null;
+    } else if (!allowRegister && mode === 'register') {
+        desiredMode = 'login';
+    }
+
+    const showLogin = desiredMode === 'login' && allowLogin;
+    const showRegister = desiredMode === 'register' && allowRegister;
+
+    DOMElements.tabLogin?.classList.toggle('active', showLogin);
+    DOMElements.tabRegister?.classList.toggle('active', showRegister);
+    DOMElements.loginForm?.classList.toggle('hidden', !showLogin);
+    DOMElements.registerForm?.classList.toggle('hidden', !showRegister);
+
+    if (showLogin || showRegister) {
+        setAuthError('');
+    }
+}
+
+function setAuthLoading(isLoading) {
+    const loginInputs = DOMElements.loginForm
+        ? Array.from(DOMElements.loginForm.querySelectorAll('input, button'))
+        : [];
+    const registerInputs = DOMElements.registerForm
+        ? Array.from(DOMElements.registerForm.querySelectorAll('input, button'))
+        : [];
+    const inputs = [
+        ...loginInputs,
+        ...registerInputs,
+        DOMElements.tabLogin,
+        DOMElements.tabRegister,
+        DOMElements.linuxdoButton,
+    ].filter(Boolean);
+    inputs.forEach((el) => {
+        if (el) el.disabled = isLoading;
+    });
+    showLoading(isLoading);
+}
+
+function applyAuthOptions() {
+    const {
+        enableLocalLogin,
+        enableLocalRegistration,
+        enableLinuxdoOAuth,
+    } = appState.authOptions;
+
+    const allowRegister = enableLocalLogin && enableLocalRegistration;
+
+    if (DOMElements.tabLogin) {
+        DOMElements.tabLogin.classList.toggle('hidden', !enableLocalLogin);
+        DOMElements.tabLogin.disabled = !enableLocalLogin;
+    }
+    if (DOMElements.loginForm) {
+        DOMElements.loginForm.classList.toggle('hidden', !enableLocalLogin);
+        const loginControls = Array.from(DOMElements.loginForm.querySelectorAll('input, button'));
+        loginControls.forEach((el) => {
+            el.disabled = !enableLocalLogin;
+        });
+    }
+
+    if (DOMElements.tabRegister) {
+        DOMElements.tabRegister.classList.toggle('hidden', !allowRegister);
+        DOMElements.tabRegister.disabled = !allowRegister;
+    }
+    if (DOMElements.registerForm) {
+        DOMElements.registerForm.classList.toggle('hidden', !allowRegister);
+        const registerControls = Array.from(DOMElements.registerForm.querySelectorAll('input, button'));
+        registerControls.forEach((el) => {
+            el.disabled = !allowRegister;
+        });
+    }
+
+    if (DOMElements.authTabs) {
+        const shouldShowTabs = enableLocalLogin && (allowRegister || enableLinuxdoOAuth);
+        DOMElements.authTabs.classList.toggle('hidden', !shouldShowTabs);
+    }
+
+    if (DOMElements.linuxdoButton) {
+        DOMElements.linuxdoButton.classList.toggle('hidden', !enableLinuxdoOAuth);
+    }
+
+    if (DOMElements.authDivider) {
+        const showDivider = enableLinuxdoOAuth && enableLocalLogin;
+        DOMElements.authDivider.classList.toggle('hidden', !showDivider);
+    }
+
+    if (!enableLocalLogin && !enableLinuxdoOAuth) {
+        setAuthError('当前未开放任何登录方式。');
+    } else if (!enableLocalLogin && enableLinuxdoOAuth) {
+        setAuthError('当前仅开放 Linux.do 登录。');
+    }
+
+    const initialMode = enableLocalLogin ? 'login' : (allowRegister ? 'register' : 'login');
+    setAuthMode(initialMode);
+}
+
+async function loadAuthOptions() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/options`, { credentials: 'include' });
+        if (!response.ok) throw new Error('Failed to load auth options');
+        const data = await response.json();
+        appState.authOptions = {
+            enableLocalLogin: Boolean(data.enable_local_login),
+            enableLocalRegistration: Boolean(data.enable_local_registration),
+            enableLinuxdoOAuth: Boolean(data.enable_linuxdo_oauth),
+        };
+    } catch (error) {
+        console.warn('无法获取认证配置，使用默认设置。', error);
+        appState.authOptions = {
+            enableLocalLogin: true,
+            enableLocalRegistration: true,
+            enableLinuxdoOAuth: true,
+        };
+    } finally {
+        applyAuthOptions();
+    }
+}
+
+async function handleLocalLogin(event) {
+    event.preventDefault();
+    if (!appState.authOptions.enableLocalLogin) {
+        setAuthError('登录功能已关闭');
+        return;
+    }
+    const username = DOMElements.loginUsername.value.trim();
+    const password = DOMElements.loginPassword.value;
+    if (!username || !password) {
+        setAuthError('请输入用户名与密码');
+        return;
+    }
+
+    setAuthLoading(true);
+    try {
+        const response = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username, password }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.detail || data.message || '登录失败');
+        }
+        DOMElements.loginForm.reset();
+        setAuthError('');
+        await initializeGame();
+    } catch (error) {
+        setAuthError(error.message || '登录失败');
+    } finally {
+        setAuthLoading(false);
+    }
+}
+
+async function handleLocalRegister(event) {
+    event.preventDefault();
+    if (!appState.authOptions.enableLocalLogin) {
+        setAuthError('登录功能已关闭');
+        return;
+    }
+    if (!appState.authOptions.enableLocalRegistration) {
+        setAuthError('注册功能已关闭');
+        return;
+    }
+    const username = DOMElements.registerUsername.value.trim();
+    const password = DOMElements.registerPassword.value;
+    const confirm = DOMElements.registerConfirmPassword.value;
+    const displayName = DOMElements.registerDisplayName.value.trim();
+
+    if (!username || !password) {
+        setAuthError('请输入完整的注册信息');
+        return;
+    }
+    if (password !== confirm) {
+        setAuthError('两次密码输入不一致');
+        return;
+    }
+
+    setAuthLoading(true);
+    try {
+        const response = await fetch(`${API_BASE_URL}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                username,
+                password,
+                display_name: displayName || undefined,
+            }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.detail || data.message || '注册失败');
+        }
+        DOMElements.registerForm.reset();
+        setAuthError('');
+        await initializeGame();
+    } catch (error) {
+        setAuthError(error.message || '注册失败');
+    } finally {
+        setAuthLoading(false);
+    }
+}
 
 // --- API Client ---
 const api = {
@@ -272,18 +503,27 @@ async function initializeGame() {
     }
 }
 
-function init() {
+async function init() {
+    setAuthMode('login');
+    await loadAuthOptions();
     // Always try to initialize the game on page load.
     // If the user is logged in, it will show the game view.
     // If not, the catch block in initializeGame will handle showing the login view.
     initializeGame();
 
     // Setup event listeners regardless of initial view
-    DOMElements.logoutButton.addEventListener('click', handleLogout);
-    DOMElements.actionButton.addEventListener('click', () => handleAction());
-    DOMElements.actionInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAction(); });
-    DOMElements.startTrialButton.addEventListener('click', () => handleAction("开始试炼"));
+    DOMElements.logoutButton?.addEventListener('click', handleLogout);
+    DOMElements.actionButton?.addEventListener('click', () => handleAction());
+    DOMElements.actionInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAction(); });
+    DOMElements.startTrialButton?.addEventListener('click', () => handleAction("开始试炼"));
+    DOMElements.tabLogin?.addEventListener('click', () => setAuthMode('login'));
+    DOMElements.tabRegister?.addEventListener('click', () => {
+        if (!appState.authOptions.enableLocalLogin || !appState.authOptions.enableLocalRegistration) return;
+        setAuthMode('register');
+    });
+    DOMElements.loginForm?.addEventListener('submit', handleLocalLogin);
+    DOMElements.registerForm?.addEventListener('submit', handleLocalRegister);
 }
 
 // --- Start the App ---
-init();
+init().catch((error) => console.error('初始化失败', error));

@@ -2,7 +2,10 @@ version: '3.8'
 
 services:
   ten-cycles-of-fate:
-    image: gabrlie/ten-cycles-of-fate:latest
+    # image: gabrlie/ten-cycles-of-fate:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: ten-cycles-of-fate
     restart: unless-stopped
     # 环境变量配置
@@ -20,6 +23,9 @@ services:
       LINUXDO_CLIENT_ID: ${LINUXDO_CLIENT_ID:-}
       LINUXDO_CLIENT_SECRET: ${LINUXDO_CLIENT_SECRET:-}
       LINUXDO_SCOPE: ${LINUXDO_SCOPE:-read}
+      ENABLE_LINUXDO_OAUTH: ${ENABLE_LINUXDO_OAUTH:-true}
+      ENABLE_LOCAL_LOGIN: ${ENABLE_LOCAL_LOGIN:-true}
+      ENABLE_LOCAL_REGISTRATION: ${ENABLE_LOCAL_REGISTRATION:-true}
       # 数据库设置
       DATABASE_URL: ${DATABASE_URL:-sqlite:///data/tencyclesoffate.db}
       # 服务器设置

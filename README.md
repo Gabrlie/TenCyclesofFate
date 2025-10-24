@@ -131,7 +131,10 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 | `OPENAI_MODEL_CHEAT_CHECK` | 作弊检查模型 | `gpt-3.5-turbo` |
 | `LINUXDO_CLIENT_ID` | Linux.do OAuth ID（可选） | - |
 | `LINUXDO_CLIENT_SECRET` | Linux.do OAuth 密钥（可选） | - |
+| `ENABLE_LINUXDO_OAUTH` | 是否启用 Linux.do OAuth 登录 | `true` |
+| `ENABLE_LOCAL_LOGIN` | 是否启用站内账号登录 | `true` |
 | `DATABASE_URL` | 数据库连接地址 | `sqlite:///data/tencyclesoffate.db` |
+| `ENABLE_LOCAL_REGISTRATION` | 是否允许站内账号注册（需先开启账号登录） | `true` |
 | `PORT` | 服务端口 | `8000` |
 | `EXTERNAL_PORT` | Docker 外部端口 | `8000` |
 
@@ -176,7 +179,27 @@ EXTERNAL_PORT=8080     # Docker 映射端口
    ```bash
    LINUXDO_CLIENT_ID=你的ClientID
    LINUXDO_CLIENT_SECRET=你的ClientSecret
+   ENABLE_LINUXDO_OAUTH=true
    ```
+
+### 关闭注册或第三方登录
+
+- 只允许既有账号登录：
+  ```bash
+  ENABLE_LOCAL_REGISTRATION=false
+  ```
+- 完全关闭 Linux.do 登录：
+  ```bash
+  ENABLE_LINUXDO_OAUTH=false
+  ```
+  关闭后前端入口和相关后端路由都会禁用。
+
+- 禁用全部站内账号登录与注册：
+  ```bash
+  ENABLE_LOCAL_LOGIN=false
+  ENABLE_LOCAL_REGISTRATION=false  # 可选，登录关闭时注册会自动失效
+  ```
+  生效后仅保留第三方登录（若启用）。
 
 ### 使用自定义 OpenAI API
 

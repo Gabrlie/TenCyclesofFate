@@ -26,8 +26,31 @@
         <div id="login-view" class="view active">
             <h1>浮生十梦</h1>
             <p>此乃试炼之地，请先表明身份。</p>
-            <a href="/api/login/linuxdo" class="login-button">使用 Linux.do 登录</a>
-            <p id="login-error" class="error-message"></p>
+            <div class="auth-card">
+                <div class="auth-tabs" id="auth-tabs">
+                    <button id="tab-login" class="tab-button active" type="button">账号登录</button>
+                    <button id="tab-register" class="tab-button" type="button">注册旅人</button>
+                </div>
+
+                <form id="local-login-form" class="auth-form">
+                    <input type="text" id="login-username" placeholder="用户名" autocomplete="username" required>
+                    <input type="password" id="login-password" placeholder="密码" autocomplete="current-password" required>
+                    <button type="submit" class="primary-button">入梦</button>
+                </form>
+
+                <form id="local-register-form" class="auth-form hidden">
+                    <input type="text" id="register-username" placeholder="用户名 (3-50 字符)" autocomplete="username" required>
+                    <input type="password" id="register-password" placeholder="密码 (至少 6 位)" autocomplete="new-password" required>
+                    <input type="password" id="register-confirm-password" placeholder="确认密码" autocomplete="new-password" required>
+                    <input type="text" id="register-display-name" placeholder="显示名 (可选)" autocomplete="nickname">
+                    <button type="submit" class="primary-button">启程</button>
+                </form>
+
+                <div class="divider" id="auth-divider"><span>或</span></div>
+
+                <a href="/api/login/linuxdo" id="linuxdo-button" class="login-button">使用 Linux.do 登录</a>
+                <p id="login-error" class="error-message"></p>
+            </div>
         </div>
 
         <!-- Game View -->

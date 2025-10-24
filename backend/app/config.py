@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     LINUXDO_CLIENT_ID: str | None = None
     LINUXDO_CLIENT_SECRET: str | None = None
     LINUXDO_SCOPE: str = "read"
+    ENABLE_LINUXDO_OAUTH: bool = True
+
+    # Local Registration Toggle
+    ENABLE_LOCAL_LOGIN: bool = True
+    ENABLE_LOCAL_REGISTRATION: bool = True
 
     # Server Settings
     HOST: str = "0.0.0.0"

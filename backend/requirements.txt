@@ -3,6 +3,7 @@ uvicorn[standard]
 pydantic-settings
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt==3.2.2
 openai
 python-multipart
 websockets==12.0

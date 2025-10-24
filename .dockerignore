@@ -54,3 +54,4 @@ docker-compose.yml
 *.log
 .DS_Store
 node_modules/
+data/tencyclesoffate.db

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
@@ -8,21 +9,36 @@ from authlib.integrations.starlette_client import OAuth
 
 from .config import settings
 
+# --- Logging ---
+logger = logging.getLogger(__name__)
+
 # --- Setup ---
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use bcrypt_sha256 to avoid the 72 byte password limitation of pure bcrypt.
+pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token") # No longer needed for cookie-based auth
 
 # --- OAuth Client ---
 oauth = OAuth()
-oauth.register(
-    name="linuxdo",
-    client_id=settings.LINUXDO_CLIENT_ID,
-    client_secret=settings.LINUXDO_CLIENT_SECRET,
-    access_token_url="https://connect.linux.do/oauth2/token",
-    authorize_url="https://connect.linux.do/oauth2/authorize",
-    api_base_url="https://connect.linux.do/",
-    client_kwargs={"scope": settings.LINUXDO_SCOPE},
-)
+HAS_LINUXDO_OAUTH = False
+
+if settings.ENABLE_LINUXDO_OAUTH:
+    if settings.LINUXDO_CLIENT_ID and settings.LINUXDO_CLIENT_SECRET:
+        oauth.register(
+            name="linuxdo",
+            client_id=settings.LINUXDO_CLIENT_ID,
+            client_secret=settings.LINUXDO_CLIENT_SECRET,
+            access_token_url="https://connect.linux.do/oauth2/token",
+            authorize_url="https://connect.linux.do/oauth2/authorize",
+            api_base_url="https://connect.linux.do/",
+            client_kwargs={"scope": settings.LINUXDO_SCOPE},
+        )
+        HAS_LINUXDO_OAUTH = True
+    else:
+        logger.warning(
+            "Linux.do OAuth 已开启但缺少 client_id 或 client_secret，功能将被禁用。"
+        )
+else:
+    logger.info("Linux.do OAuth 登录已通过配置禁用。")
 
 # --- Models ---
 class TokenData(object):
@@ -45,6 +61,15 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
+
+def get_linuxdo_client():
+    """
+    Returns an OAuth client for Linux.do if the feature is enabled.
+    Raises RuntimeError when the integration is disabled or misconfigured.
+    """
+    if not HAS_LINUXDO_OAUTH:
+        raise RuntimeError("Linux.do OAuth is disabled or misconfigured.")
+    return oauth.create_client("linuxdo")
 
 def decode_access_token(token: str):
     """Decodes the access token and returns the payload."""
