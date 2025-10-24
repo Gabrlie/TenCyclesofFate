@@ -53,7 +53,7 @@ git clone https://github.com/CassiopeiaCode/TenCyclesofFate.git
 cd TenCyclesofFate
 ```
 
-### 3. 安装后端依赖
+### 3. 安装后端依赖（Docker方式部署无需此步）
 
 项目使用 `uv`（或 `pip`）来管理 Python 依赖。在项目根目录下运行：
 
@@ -132,6 +132,11 @@ chmod +x run.sh
 然后，运行脚本：
 ```bash
 ./run.sh
+```
+
+使用Docker方式部署：
+```bash
+docker compose up -d
 ```
 
 脚本会自动加载 `backend/.env` 文件中的环境变量，并使用 `uvicorn` 启动 FastAPI 服务器。
