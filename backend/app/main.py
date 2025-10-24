@@ -203,6 +203,10 @@ async def live_websocket_endpoint(websocket: WebSocket):
         websocket_manager.disconnect(viewer_id)
         live_manager.remove_viewer(viewer_id)
 
+@app.get("/health")
+async def health_check():
+    """健康检查端点"""
+    return {"status": "healthy", "service": "TenCyclesofFate"}
 
 # --- Include API Router and Mount Static Files ---
 app.include_router(api_router)
