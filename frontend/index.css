@@ -545,7 +545,7 @@ body::after {
         border-radius: 0;
         border: none;
     }
-    #game-view {
+    #game-view.view.active {
         grid-template-columns: 1fr;
         grid-template-rows: auto auto 1fr auto;
         grid-template-areas:
